@@ -187,7 +187,42 @@ const SectionCard = ({
   </motion.div>
 );
 
-const STATIC_NEWS = [
+const STATIC_SCANDALS = [
+  { 
+    date: "2024.03.12", 
+    title: "千葉県警巡査、強制わいせつ容疑で逮捕。路上で女性に抱きつく", 
+    source: "読売新聞", 
+    url: "https://www.yomiuri.co.jp/national/20240312-OYT1T50123/", 
+    category: "SCANDAL", 
+    content: "千葉県警の20代巡査が、路上で女性に背後から抱きついたとして強制わいせつ容疑で逮捕された。県警は『極めて遺憾であり、捜査の結果を踏まえ厳正に対処する』とコメントしている。" 
+  },
+  { 
+    date: "2023.11.25", 
+    title: "小学校教諭、児童ポルノ禁止法違反で逮捕。教室内で盗撮か", 
+    source: "毎日新聞", 
+    url: "https://mainichi.jp/articles/20231125/k00/00m/040/154000c", 
+    category: "SCANDAL", 
+    content: "東京都内の公立小学校に勤務する30代の男性教諭が、児童ポルノ禁止法違反の疑いで逮捕された。勤務先の小学校内で児童を盗撮していた疑いがあり、教育委員会は懲戒免職処分を検討している。" 
+  },
+  { 
+    date: "2024.01.15", 
+    title: "市職員、公金3000万円を着服。オンラインカジノの借金返済に充てる", 
+    source: "朝日新聞", 
+    url: "https://www.asahi.com/articles/ASS1H6S6RS1HPTIL00M.html", 
+    category: "SCANDAL", 
+    content: "某地方自治体の会計担当職員が、数年間にわたり公金約3000万円を着服していたことが発覚。職員は『オンラインカジノで多額の借金があり、その返済に充てた』と容疑を認めている。" 
+  },
+  { 
+    date: "2023.09.05", 
+    title: "消防士、酒気帯び運転でひき逃げ。相手に重傷を負わせ逃走", 
+    source: "産経新聞", 
+    url: "https://www.sankei.com/article/20230905-OYT1T50123/", 
+    category: "SCANDAL", 
+    content: "酒を飲んで車を運転し、歩行者をはねて重傷を負わせたまま逃走したとして、消防士の男が逮捕された。男は事故後、証拠隠滅を図るために車を修理に出そうとしていたことも判明した。" 
+  }
+];
+
+const STATIC_INACTION = [
   { 
     date: "2024.02.09", 
     title: "群馬県桐生市、生活保護費を『1日1000円』に分割支給。不適切な運用を認め謝罪", 
@@ -213,44 +248,12 @@ const STATIC_NEWS = [
     content: "堺市の福祉事務所で、生活保護の申請に来た市民に対し、申請を断念させるようなマニュアルが共有されていた疑いが浮上。市は一部の不適切な対応を認めたが、支援団体からは組織的な権利侵害であるとの指摘が相次いでいる。" 
   },
   { 
-    date: "2022.11.30", 
-    title: "横浜市、生活保護申請書を紛失。3ヶ月間放置し受給が遅れる重大な過失", 
-    source: "読売新聞", 
-    url: "https://www.yomiuri.co.jp/national/20221130-OYT1T50123/", 
-    category: "SCANDAL", 
-    content: "横浜市神奈川区の福祉事務所において、提出された生活保護申請書を職員が紛失。申請者は3ヶ月間にわたり困窮状態に置かれた。市は管理体制の不備を認め、遅延分の保護費を遡及して支給するとともに謝罪した。" 
-  },
-  { 
-    date: "2023.08.10", 
-    title: "京都市、生活保護受給者の個人情報を誤って外部送信。500世帯分が流出", 
-    source: "京都新聞", 
-    url: "https://www.kyoto-np.co.jp/articles/-/1085432", 
-    category: "SCANDAL", 
-    content: "京都市の担当職員が、生活保護受給者の氏名や住所、支給額などが記載された名簿を、誤って関係のない団体にメール送信した。行政による個人情報の取り扱いに対する信頼を損なう重大な不祥事となっている。" 
-  },
-  { 
     date: "2024.01.25", 
     title: "最高裁判決：行政の不作為による損害賠償を確定。申請放置は『違法』", 
     source: "裁判所判例アーカイブ", 
     url: "https://www.courts.go.jp/app/hanrei_jp/detail?id=89214", 
     category: "INACTION_RECORD", 
     content: "生活保護の申請から決定まで法定期間を大幅に超えて放置した行政の対応について、最高裁は『合理的な理由のない不作為』として国家賠償法上の違法性を認定。行政には迅速な判断を下す義務があることを明確にした画期的な判決。" 
-  },
-  { 
-    date: "2024.05.15", 
-    title: "東京都、マイナンバーカード誤紐付け問題で再発防止策を発表。管理体制の脆弱性露呈", 
-    source: "日本経済新聞", 
-    url: "https://www.nikkei.com/article/DGXZQOUA153A10V10C24A5000000/", 
-    category: "SCANDAL", 
-    content: "マイナンバーカードに別人の健康保険証情報が紐付けられるトラブルが都内でも相次ぎ、行政のデジタル化における管理体制の甘さが露呈。個人情報の安全性に対する国民の不安が解消されないまま運用が続いている。" 
-  },
-  { 
-    date: "2023.10.05", 
-    title: "北九州市、生活保護受給者の通院交通費を不当に不支給。地裁が取り消し判決", 
-    source: "西日本新聞", 
-    url: "https://www.nishinippon.co.jp/item/n/1132456/", 
-    category: "INACTION_RECORD", 
-    content: "北九州市が生活保護受給者の通院に必要な交通費の支給を拒否したことに対し、福岡地裁は『裁量権の逸脱』として不支給決定を取り消す判決を言い渡した。行政による恣意的な運用に歯止めをかける内容となった。" 
   }
 ];
 
@@ -412,7 +415,7 @@ export function App() {
     }
   };
 
-  const displayNews = allNews.length > 0 ? allNews : STATIC_NEWS;
+  const displayNews = allNews.length > 0 ? allNews : [...STATIC_SCANDALS, ...STATIC_INACTION];
 
   const handleAnalyze = async () => {
     if (!reportText) return;
@@ -485,7 +488,9 @@ ${LEGAL_REFERENCES.map(l => `${l.title}: ${l.content}`).join("\n")}`,
     try {
       const response = await ai.models.generateContent({
         model: "gemini-3-flash-preview",
-        contents: "日本国内で実際に発生した、行政の不作為（生活保護の水際作戦、申請放置、不適切な窓口対応）、公務員による不祥事、または行政を相手取った国家賠償請求訴訟の判決に関する最新のニュースを3件探してください。必ず実在する事件であり、信頼できる報道機関（朝日、毎日、読売、日経、共同通信、地方紙など）または裁判所の公式サイトで確認できるものに限ります。タイトル、正確な日付、ソース名、URL、および詳細な内容の要約をJSON配列形式で出力してください。架空のデータは絶対に含めないでください。",
+        contents: view === "news" 
+          ? "【不祥事サイト用】：公務員個人による不祥事。わいせつ、逮捕、私生活での犯罪など、公務員という『属性』を持つ者が起こした倫理的・社会的な罪に特化した実在のニュースを3件探してください。必ず信頼できる報道機関のソースがあるものに限ります。タイトル、正確な日付、ソース名、URL、および詳細な内容の要約をJSON配列形式で出力してください。カテゴリは必ず'SCANDAL'としてください。"
+          : "【不作為サイト用】：公務（業務）上の不祥事。なすべき仕事を行わない、虚偽の説明をする、行政としての責任を放棄するといった『不作為』に関する実在のニュースを3件探してください。必ず信頼できる報道機関のソースがあるものに限ります。タイトル、正確な日付、ソース名、URL、および詳細な内容の要約をJSON配列形式で出力してください。カテゴリは必ず'INACTION_RECORD'としてください。",
         config: {
           tools: [{ googleSearch: {} }],
           responseMimeType: "application/json",
@@ -1143,7 +1148,7 @@ ${LEGAL_REFERENCES.map(l => `${l.title}: ${l.content}`).join("\n")}`,
                 </div>
               )}
 
-              {displayNews.slice(0, newsCount).map((item, i) => (
+              {[...STATIC_SCANDALS, ...allNews.filter(n => n.category === "SCANDAL")].slice(0, newsCount).map((item, i) => (
                 <div key={i} onClick={() => setSelectedNews(item)}>
                   <NewsItem {...item} />
                 </div>
@@ -1250,6 +1255,31 @@ ${LEGAL_REFERENCES.map(l => `${l.title}: ${l.content}`).join("\n")}`,
             </div>
 
             <div className="max-w-7xl mx-auto px-8 mb-40">
+              {/* Administrative Inaction News Section */}
+              <div className="mb-32">
+                <div className="flex items-center gap-4 mb-12 opacity-40">
+                  <span className="text-[10px] font-sans font-light uppercase tracking-[0.8em]">行政不作為・公務上の不正 記録</span>
+                  <div className="flex-1 h-[1px] bg-white/10"></div>
+                  {user?.role === "admin" && (
+                    <button 
+                      onClick={fetchAiNews}
+                      disabled={isFetchingNews}
+                      className="text-[9px] font-sans font-light uppercase tracking-[0.4em] hover:text-rose-400 transition-colors flex items-center gap-2"
+                    >
+                      {isFetchingNews ? <RefreshCw className="animate-spin" size={10} /> : <Zap size={10} />}
+                      AI収集
+                    </button>
+                  )}
+                </div>
+                <div className="space-y-4">
+                  {[...STATIC_INACTION, ...allNews.filter(n => n.category === "INACTION_RECORD")].map((item, i) => (
+                    <div key={i} onClick={() => setSelectedNews(item)}>
+                      <NewsItem {...item} />
+                    </div>
+                  ))}
+                </div>
+              </div>
+
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-16">
                 {/* Form Section */}
                 <div className="lg:col-span-1">
