@@ -27,7 +27,8 @@ import {
   LogOut,
   User as UserIcon,
   History,
-  Shield
+  Shield,
+  ClipboardList
 } from "lucide-react";
 import { GoogleGenAI, ThinkingLevel, Type } from "@google/genai";
 import ReactMarkdown from "react-markdown";
@@ -120,7 +121,7 @@ const LEGAL_REFERENCES = [
   { id: "kenpo_25", title: "日本国憲法 第25条", content: "すべて国民は、健康で文化的な最低限度の生活を営む権利を有する。国は、すべての生活部面について、社会福祉、社会保障及び公衆衛生の向上及び増進に努めなければならない。" },
 ];
 
-type View = "portal" | "home" | "report" | "case_ukyo" | "news" | "gap_db";
+type View = "portal" | "home" | "report" | "case_ukyo" | "news";
 
 const NewsItem = ({ date, title, source, category, url }: { date: string; title: string; source: string; category: string; url?: string }) => (
   <motion.div 
@@ -289,7 +290,8 @@ export function App() {
     frequency: "",
     duration: "",
     coping: "",
-    techSolution: ""
+    techSolution: "",
+    experienceDescription: ""
   });
   const [submittedGaps, setSubmittedGaps] = useState<any[]>([]);
   const [allNews, setAllNews] = useState<any[]>([]);
@@ -393,11 +395,41 @@ export function App() {
       handleLogin();
       return;
     }
-    if (!gapForm.location || !gapForm.actionType) return;
+    if (!gapForm.location || !gapForm.actionType || !gapForm.experienceDescription) return;
     
+    setIsAnalyzing(true);
     try {
+      // AI Legality Assessment
+      const response = await ai.models.generateContent({
+        model: "gemini-3.1-pro-preview",
+        contents: `以下の行政窓口や電話での対応体験について、その「違法性」を分析してください。
+分類は以下の3つのいずれかから選び、その理由を簡潔に述べてください。
+
+分類:
+1. 違法 (Illegal): 明らかに行政手続法や生活保護法、憲法などに抵触する可能性が高い。
+2. 適法 (Legal): 行政の裁量範囲内であり、法的な問題は少ない。
+3. グレー (Gray Area): 状況により違法性が問われる可能性があり、さらなる調査や証拠が必要。
+
+体験内容:
+${gapForm.experienceDescription}
+
+回答は以下のJSON形式で返してください：
+{
+  "category": "違法" | "適法" | "グレー",
+  "explanation": "理由の簡潔な説明"
+}`,
+        config: {
+          systemInstruction: "あなたは行政法に精通したAI法律アドバイザーです。ユーザーの体験を客観的に分析し、違法性の有無を判断してください。回答は必ず指定されたJSON形式で行ってください。",
+          responseMimeType: "application/json"
+        }
+      });
+
+      const result = JSON.parse(response.text || "{}");
+      
       await addDoc(collection(db, "gaps"), {
         ...gapForm,
+        legalityCategory: result.category || "グレー",
+        legalityExplanation: result.explanation || "分析できませんでした。",
         userId: user.uid,
         createdAt: Timestamp.now()
       });
@@ -408,10 +440,13 @@ export function App() {
         frequency: "",
         duration: "",
         coping: "",
-        techSolution: ""
+        techSolution: "",
+        experienceDescription: ""
       });
     } catch (error) {
       handleFirestoreError(error, OperationType.CREATE, "gaps");
+    } finally {
+      setIsAnalyzing(false);
     }
   };
 
@@ -611,16 +646,10 @@ ${LEGAL_REFERENCES.map(l => `${l.title}: ${l.content}`).join("\n")}`,
             不祥事DB
           </button>
           <button 
-            onClick={() => setView("gap_db")}
-            className={`text-[9px] font-sans font-light uppercase tracking-[0.6em] transition-all ${view === 'gap_db' ? 'text-rose-400 opacity-100' : 'text-white opacity-40 hover:opacity-100'}`}
-          >
-            支援の空白
-          </button>
-          <button 
             onClick={() => setView("report")}
             className={`text-[9px] font-sans font-light uppercase tracking-[0.6em] transition-all ${view === 'report' ? 'text-rose-400 opacity-100' : 'text-white opacity-40 hover:opacity-100'}`}
           >
-            法的精査
+            不作為DB
           </button>
           <div className="w-[1px] h-6 bg-white/10 mx-4"></div>
           {user ? (
@@ -760,25 +789,20 @@ ${LEGAL_REFERENCES.map(l => `${l.title}: ${l.content}`).join("\n")}`,
             {/* Module Grid Section */}
             <div className="px-12 lg:px-24 py-40 border-t border-white/5">
               <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-16">
-                <div className="group cursor-pointer" onClick={() => setView("home")}>
-                  <div className="text-[9px] font-sans font-light uppercase tracking-[0.8em] text-rose-400/60 mb-8">01 / アーカイブ</div>
-                  <h3 className="text-5xl font-display italic tracking-tighter text-white mb-6 group-hover:text-rose-400 transition-colors">FUSAKUI-DB</h3>
-                  <p className="font-serif italic text-2xl opacity-30 leading-relaxed group-hover:opacity-60 transition-opacity">行政の不作為、水際作戦の記録をセマンティック検索。証拠としての価値を最大化する。</p>
+                <div className="group cursor-pointer" onClick={() => setView("report")}>
+                  <div className="text-[9px] font-sans font-light uppercase tracking-[0.8em] text-rose-400/60 mb-8">01 / 不作為記録</div>
+                  <h3 className="text-5xl font-display italic tracking-tighter text-white mb-6 group-hover:text-rose-400 transition-colors uppercase">Inaction-DB</h3>
+                  <p className="font-serif italic text-2xl opacity-30 leading-relaxed group-hover:opacity-60 transition-opacity">行政の不作為、水際作戦の記録とAIによる法的精査。証拠としての価値を最大化する。</p>
                 </div>
                 <div className="group cursor-pointer" onClick={() => setView("news")}>
                   <div className="text-[9px] font-sans font-light uppercase tracking-[0.8em] text-blue-400/60 mb-8">02 / 証拠</div>
-                  <h3 className="text-5xl font-display italic tracking-tighter text-white mb-6 group-hover:text-blue-400 transition-colors">MISCONDUCT-DB</h3>
+                  <h3 className="text-5xl font-display italic tracking-tighter text-white mb-6 group-hover:text-blue-400 transition-colors uppercase">Misconduct-DB</h3>
                   <p className="font-serif italic text-2xl opacity-30 leading-relaxed group-hover:opacity-60 transition-opacity">全国の行政不祥事をAIがリアルタイムに集約。組織的な腐敗を可視化する。</p>
                 </div>
-                <div className="group cursor-pointer" onClick={() => setView("report")}>
-                  <div className="text-[9px] font-sans font-light uppercase tracking-[0.8em] text-purple-400/60 mb-8">03 / 分析</div>
-                  <h3 className="text-5xl font-display italic tracking-tighter text-white mb-6 group-hover:text-purple-400 transition-colors">LEGAL SCRUTINY</h3>
-                  <p className="font-serif italic text-2xl opacity-30 leading-relaxed group-hover:opacity-60 transition-opacity">Gemini 3.1 Proによる法的精査。行政手続法に基づき、不当な対応を論理的に解体する。</p>
-                </div>
-                <div className="group cursor-pointer" onClick={() => setView("gap_db")}>
-                  <div className="text-[9px] font-sans font-light uppercase tracking-[0.8em] text-emerald-400/60 mb-8">04 / 市場データ</div>
-                  <h3 className="text-5xl font-display italic tracking-tighter text-white mb-6 group-hover:text-emerald-400 transition-colors uppercase">Gap-DB</h3>
-                  <p className="font-serif italic text-2xl opacity-30 leading-relaxed group-hover:opacity-60 transition-opacity">福祉の空白を可視化。当事者の日常から生まれる市場データと、産官協働による新しい支援の道。</p>
+                <div className="group cursor-pointer" onClick={() => setView("home")}>
+                  <div className="text-[9px] font-sans font-light uppercase tracking-[0.8em] text-purple-400/60 mb-8">03 / アーカイブ</div>
+                  <h3 className="text-5xl font-display italic tracking-tighter text-white mb-6 group-hover:text-purple-400 transition-colors uppercase">Archive</h3>
+                  <p className="font-serif italic text-2xl opacity-30 leading-relaxed group-hover:opacity-60 transition-opacity">尊厳の奪還作戦。沈黙を強いられた人々の記録を可視化するための聖域。</p>
                 </div>
               </div>
             </div>
@@ -824,103 +848,13 @@ ${LEGAL_REFERENCES.map(l => `${l.title}: ${l.content}`).join("\n")}`,
                   <motion.p 
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
-                    transition={{ delay: 0.8, duration: 1 }}
-                    className="text-xl md:text-4xl font-serif italic max-w-3xl mx-auto leading-relaxed opacity-40 mb-24 font-light"
+                    transition={{ delay: 0.8, duration: 1.5 }}
+                    className="font-serif italic text-2xl md:text-3xl opacity-40 max-w-2xl leading-relaxed font-light"
                   >
-                    当事者の暮らし方は、当事者が選ぶ。<br />
-                    行政の不作為を記録し、逃げ場のない事実を突きつける。
+                    この場所は、沈黙を強いられた人々の記録であり、<br />
+                    行政の不作為という名の「暴力」を可視化するための聖域である。
                   </motion.p>
-                  
-                  <div className="flex justify-center gap-12">
-                    <motion.div
-                      whileHover={{ scale: 1.05 }}
-                      className="glass-panel p-12 rounded-full w-80 h-80 flex flex-col items-center justify-center cursor-pointer group transition-all duration-700"
-                      onClick={() => setView("report")}
-                    >
-                      <ShieldAlert size={32} className="mb-6 opacity-20 group-hover:opacity-100 group-hover:text-[#FF4E00] transition-all duration-500" />
-                      <h2 className="text-2xl font-light italic tracking-widest mb-4 font-display">FUSAKUI</h2>
-                      <span className="text-[9px] uppercase tracking-[0.4em] opacity-30">法的精査へ</span>
-                    </motion.div>
-                  </div>
                 </div>
-              </div>
-            </section>
-
-            {/* Stats / Contrast Section */}
-            <section className="mb-60 grid grid-cols-1 md:grid-cols-2 gap-12">
-              <motion.div 
-                whileHover={{ scale: 1.02 }}
-                className="glass-panel p-24 rounded-3xl flex flex-col items-center text-center transition-all duration-700"
-              >
-                <div className="flex items-center gap-3 mb-12 font-sans font-light uppercase text-[9px] tracking-[0.6em] text-blue-400/40">
-                  <Coins size={14} /> 行政の貯金
-                </div>
-                <div className="text-[10rem] md:text-[12rem] font-extralight tracking-tighter mb-8 font-display leading-none text-white">180 <span className="text-xl md:text-2xl align-top mt-6 inline-block font-serif italic opacity-20">0億円</span></div>
-                <p className="text-lg font-serif italic opacity-30 max-w-xs leading-relaxed">不作為によって積み上げられた、<br />冷徹な黒字の集積。</p>
-              </motion.div>
-              <motion.div 
-                whileHover={{ scale: 1.02 }}
-                className="glass-panel p-24 rounded-3xl flex flex-col items-center text-center transition-all duration-700"
-              >
-                <div className="flex items-center gap-3 mb-12 font-sans font-light uppercase text-[9px] tracking-[0.6em] text-rose-400/40">
-                  <Scale size={14} /> 当事者の権利
-                </div>
-                <div className="text-[10rem] md:text-[12rem] font-extralight tracking-tighter mb-8 font-display leading-none text-rose-500/80">1 <span className="text-xl md:text-2xl align-top mt-6 inline-block font-serif italic opacity-20 text-white">JPY</span></div>
-                <p className="text-lg font-serif italic opacity-30 max-w-xs leading-relaxed">搾取され、生活を破壊された<br />「私」の現実と尊厳。</p>
-              </motion.div>
-            </section>
-
-            {/* Grid Section */}
-            <section className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-24">
-              <SectionCard 
-                title="FUSAKUI-DB"
-                tag="Inaction DB"
-                description="窓口での不当な拒絶や放置を記録。AIによる法的精査を経て、行政の不作為をデータ化。"
-                icon={Database}
-                onClick={() => {}}
-              />
-              <SectionCard 
-                title="misconduct-db-"
-                tag="Scandal News"
-                description="公務員や行政機関による不祥事・不正行為を「事実のみ」で集積。独自の基準でアーカイブ。"
-                icon={Newspaper}
-                // @ts-ignore
-                onClick={() => setView("news")}
-              />
-              <SectionCard 
-                title="右京区の不作為"
-                tag="Evidence"
-                description="法治主義の放棄、3ヶ月の放置、恫喝の自白記録。明日の会議の武器。"
-                icon={FileText}
-                onClick={() => setView("case_ukyo")}
-              />
-            </section>
-
-            {/* Recent Alerts / Data Grid */}
-            <section className="border border-black/10 bg-white overflow-hidden shadow-2xl mb-32">
-              <div className="bg-[#1A1A1A] text-white p-8 flex justify-between items-center">
-                <h3 className="font-black italic tracking-tighter text-4xl flex items-center gap-4 font-display">
-                  <AlertTriangle size={28} className="text-[#C41E3A]" /> 最新の不作為記録
-                </h3>
-                <span className="font-sans text-[10px] font-bold uppercase tracking-[0.5em] opacity-40">LIVE_FEED_v1.0</span>
-              </div>
-              <div className="divide-y divide-black/5">
-                {[
-                  { date: "2026.03.28", location: "京都市", type: "カンファレンス発言", status: "特殊扶助否定" },
-                  { date: "2026.03.25", location: "京都市右京区", type: "申請拒絶", status: "放置3ヶ月" },
-                  { date: "2026.03.22", location: "大阪市某区", type: "恫喝対応", status: "記録済み" },
-                  { date: "2026.03.18", location: "東京都某区", type: "水際作戦", status: "係争中" },
-                ].map((item, i) => (
-                  <div key={i} className="grid grid-cols-2 md:grid-cols-4 p-8 hover:bg-[#F9F7F2] transition-all cursor-pointer group border-l-0 hover:border-l-[12px] hover:border-[#C41E3A]">
-                    <div className="font-sans text-[10px] font-bold uppercase tracking-[0.2em] opacity-30 group-hover:opacity-100">{item.date}</div>
-                    <div className="font-black italic tracking-tighter text-3xl font-display">{item.location}</div>
-                    <div className="font-serif italic text-xl opacity-60 group-hover:opacity-100">{item.type}</div>
-                    <div className="text-right font-sans text-[10px] font-bold text-[#C41E3A] uppercase tracking-[0.3em]">{item.status}</div>
-                  </div>
-                ))}
-              </div>
-              <div className="p-6 bg-gray-100 border-t-2 border-black text-center font-sans text-[10px] font-bold uppercase tracking-[0.5em] cursor-pointer hover:bg-black hover:text-white transition-colors">
-                すべての記録を表示
               </div>
             </section>
           </motion.main>
@@ -932,112 +866,243 @@ ${LEGAL_REFERENCES.map(l => `${l.title}: ${l.content}`).join("\n")}`,
             initial={{ opacity: 0, scale: 0.98 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 1.02 }}
-            className="max-w-5xl mx-auto px-4 py-24"
+            className="max-w-7xl mx-auto px-4 py-24"
           >
             {/* Module Breadcrumb */}
-            <div className="flex items-center gap-4 mb-24 opacity-20 hover:opacity-100 transition-opacity cursor-pointer" onClick={() => setView("portal")}>
+            <div className="max-w-7xl mx-auto px-8 flex items-center gap-4 mb-24 opacity-20 hover:opacity-100 transition-opacity cursor-pointer" onClick={() => setView("portal")}>
               <span className="text-[9px] font-sans font-light uppercase tracking-[0.6em]">Project Mana</span>
               <span className="w-4 h-[1px] bg-white/20"></span>
-              <span className="text-[9px] font-sans font-light uppercase tracking-[0.6em] text-purple-400">精査モジュール</span>
+              <span className="text-[9px] font-sans font-light uppercase tracking-[0.6em] text-rose-400">不作為モジュール</span>
             </div>
 
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-12 mb-24">
-              <div>
-                <button 
-                  onClick={() => setView("portal")}
-                  className="flex items-center gap-3 font-sans text-[9px] font-light uppercase tracking-[0.6em] mb-12 hover:text-white transition-colors opacity-40 hover:opacity-100"
-                >
-                  <ChevronLeft size={14} /> ポータルに戻る
-                </button>
-                <h2 className="text-7xl md:text-[10rem] font-light italic tracking-tighter leading-[0.85] font-display mb-8 text-white text-glow">法的精査</h2>
-                <p className="font-serif italic text-3xl opacity-30 font-light">Gemini 3.1 Proによる不作為の解体。</p>
-              </div>
-              <div className="flex flex-col items-end gap-4">
-                <a 
-                  href="https://notebooklm.google.com/notebook/31de7a8b-3cf5-4cff-999c-ca1826a15ff0" 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="glass-panel px-8 py-4 rounded-full text-[9px] font-sans font-light uppercase tracking-[0.4em] text-white/40 hover:text-white hover:bg-white/10 transition-all flex items-center gap-3"
-                >
-                  <BookOpen size={14} className="opacity-40" /> 外部ナレッジベース
-                </a>
-              </div>
+            <div className="px-8 mb-32">
+              <button 
+                onClick={() => setView("portal")}
+                className="flex items-center gap-3 font-sans text-[9px] font-light uppercase tracking-[0.6em] mb-12 hover:text-white transition-colors opacity-40 hover:opacity-100"
+              >
+                <ChevronLeft size={14} /> ポータルに戻る
+              </button>
+              <h2 className="text-7xl md:text-[12rem] font-light italic tracking-tighter leading-none font-display text-white text-glow">不作為のデータベース</h2>
+              <p className="font-serif italic text-3xl md:text-4xl opacity-20 mt-8 max-w-2xl leading-relaxed font-light">
+                行政の不作為を記録し、逃げ場のない事実を突きつける。AIによる法的精査と当事者の体験記録。
+              </p>
             </div>
 
-            <div className="glass-panel p-16 md:p-32 rounded-[3rem] relative overflow-hidden">
-              <div className="absolute top-0 right-0 w-96 h-96 bg-rose-500/5 rounded-full -mr-48 -mt-48 blur-[120px]"></div>
-              <h2 className="text-6xl md:text-9xl font-light italic tracking-tighter mb-20 font-display text-white text-glow">FUSAKUI-DB <span className="block text-2xl md:text-4xl mt-4 opacity-20 font-serif not-italic tracking-widest uppercase">法的精査</span></h2>
-              
-              <div className="space-y-20 relative z-10">
-                <div>
-                  <label className="block font-sans text-[9px] font-light uppercase mb-8 tracking-[0.8em] opacity-20">不作為の記録（日時、場所、対話内容、拒絶の理由など）</label>
-                  <textarea 
-                    value={reportText}
-                    onChange={(e) => setReportText(e.target.value)}
-                    placeholder="あなたの尊厳が損なわれた瞬間の記録を入力してください..."
-                    className="w-full h-96 bg-white/[0.02] border border-white/5 p-12 font-serif italic text-3xl md:text-4xl focus:outline-none focus:border-rose-500/30 focus:bg-white/[0.04] transition-all resize-none rounded-3xl text-white/80 leading-relaxed placeholder:opacity-10"
-                  />
-                </div>
-
-                <div className="flex flex-col md:flex-row gap-12">
+            {/* Inaction News Section (Moved from gap_db) */}
+            <div className="max-w-7xl mx-auto px-8 mb-40">
+              <div className="flex items-center gap-4 mb-12 opacity-40">
+                <span className="text-[10px] font-sans font-light uppercase tracking-[0.8em]">行政不作為・公務上の不正 記録</span>
+                <div className="flex-1 h-[1px] bg-white/10"></div>
+                {user?.role === "admin" && (
                   <button 
-                    onClick={handleAnalyze}
-                    disabled={isAnalyzing || !reportText}
-                    className="flex-2 glass-panel text-white py-10 px-16 font-light italic text-3xl tracking-tighter hover:bg-white/10 transition-all flex items-center justify-center gap-6 font-display group rounded-full overflow-hidden relative"
+                    onClick={fetchAiNews}
+                    disabled={isFetchingNews}
+                    className="text-[9px] font-sans font-light uppercase tracking-[0.4em] hover:text-rose-400 transition-colors flex items-center gap-2"
                   >
-                    <div className="absolute inset-0 bg-gradient-to-r from-rose-500/10 to-blue-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
-                    {isAnalyzing ? "分析中..." : <><Sparkles className="opacity-40 group-hover:opacity-100 group-hover:text-rose-400 transition-all" /> 法的精査を実行</>}
+                    {isFetchingNews ? <RefreshCw className="animate-spin" size={10} /> : <Zap size={10} />}
+                    AI収集
                   </button>
-                  <button className="flex-1 glass-panel py-10 px-16 font-light italic text-3xl tracking-tighter hover:bg-white/10 transition-all flex items-center justify-center gap-6 font-display rounded-full text-white/40 hover:text-white">
-                    <Send size={20} className="opacity-40" /> 記録を保存
-                  </button>
-                </div>
+                )}
               </div>
+              <div className="space-y-4">
+                {[...STATIC_INACTION, ...allNews.filter(n => n.category === "INACTION_RECORD")].map((item, i) => (
+                  <div key={i} onClick={() => setSelectedNews(item)}>
+                    <NewsItem {...item} />
+                  </div>
+                ))}
+              </div>
+            </div>
 
-              {analysis && (
-                <motion.div 
-                  initial={{ opacity: 0, y: 30 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="mt-24 glass-panel p-16 md:p-24 rounded-[2rem] border-rose-500/10"
-                >
-                  <div className="flex items-center gap-4 text-rose-400 font-light italic text-3xl mb-12 font-display">
-                    <Sparkles size={24} className="opacity-60" /> 精査レポート
-                  </div>
-                  <div className="prose prose-invert prose-2xl max-w-none font-serif italic leading-[1.8] whitespace-pre-wrap opacity-70 text-white/90">
-                    <ReactMarkdown>{analysis}</ReactMarkdown>
-                  </div>
-                </motion.div>
-              )}
-
-              {/* My Reports Section */}
-              {myReports.length > 0 && (
-                <div className="mt-32">
-                  <div className="flex items-center gap-6 mb-12 opacity-40">
-                    <History size={20} className="text-rose-400" />
-                    <span className="text-[10px] font-sans font-light uppercase tracking-[0.8em]">過去の鑑定履歴</span>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    {myReports.map((report, i) => (
-                      <div key={i} className="glass-panel p-12 rounded-[32px] border-white/5 hover:bg-white/[0.02] transition-all cursor-pointer group" onClick={() => {
-                        setReportText(report.text);
-                        setAnalysis(report.analysis);
-                        window.scrollTo({ top: 0, behavior: 'smooth' });
-                      }}>
-                        <div className="flex items-center justify-between mb-6 opacity-40">
-                          <span className="text-[8px] font-sans font-light uppercase tracking-[0.4em]">{report.createdAt?.toDate().toLocaleDateString()}</span>
-                          <ArrowRight size={12} className="group-hover:translate-x-2 transition-transform" />
-                        </div>
-                        <p className="text-xl font-serif italic opacity-60 line-clamp-2 mb-4">{report.text}</p>
-                        <div className="h-[1px] w-12 bg-rose-400/20 mb-4" />
-                        <p className="text-sm font-sans font-light uppercase tracking-widest opacity-20 group-hover:opacity-40 transition-opacity">詳細を表示</p>
+            <div className="px-8 space-y-32">
+              {/* Experience Survey Section (Moved from gap_db) */}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-16">
+                <div className="lg:col-span-1">
+                  <div className="glass-panel p-12 rounded-[3rem] sticky top-32">
+                    <div className="flex items-center gap-4 mb-12">
+                      <ClipboardList size={24} className="text-rose-400/60" />
+                      <h3 className="text-4xl font-display italic tracking-tighter text-white">不作為体験アンケート</h3>
+                    </div>
+                    
+                    <form onSubmit={handleGapSubmit} className="space-y-12">
+                      <div>
+                        <label className="block font-sans text-[9px] font-light uppercase mb-4 tracking-[0.4em] opacity-40">所在地</label>
+                        <input 
+                          type="text"
+                          value={gapForm.location}
+                          onChange={(e) => setGapForm({...gapForm, location: e.target.value})}
+                          placeholder="例：京都市右京区"
+                          className="w-full bg-white/[0.02] border border-white/5 p-6 font-serif italic text-2xl focus:outline-none focus:border-rose-500/30 transition-all rounded-2xl text-white/80"
+                        />
                       </div>
+                      <div>
+                        <label className="block font-sans text-[9px] font-light uppercase mb-4 tracking-[0.4em] opacity-40">拒絶された支援の種類</label>
+                        <input 
+                          type="text"
+                          value={gapForm.actionType}
+                          onChange={(e) => setGapForm({...gapForm, actionType: e.target.value})}
+                          placeholder="例：生活保護申請の拒絶"
+                          className="w-full bg-white/[0.02] border border-white/5 p-6 font-serif italic text-2xl focus:outline-none focus:border-rose-500/30 transition-all rounded-2xl text-white/80"
+                        />
+                      </div>
+                      <div>
+                        <label className="block font-sans text-[9px] font-light uppercase mb-4 tracking-[0.4em] opacity-40">体験の詳細（窓口や電話での対応）</label>
+                        <textarea 
+                          value={gapForm.experienceDescription}
+                          onChange={(e) => setGapForm({...gapForm, experienceDescription: e.target.value})}
+                          placeholder="どのようなおかしな断られ方をしましたか？具体的に記入してください。"
+                          className="w-full bg-white/[0.02] border border-white/5 p-6 font-serif italic text-2xl focus:outline-none focus:border-rose-500/30 transition-all rounded-2xl text-white/80 h-48 resize-none"
+                          required
+                        />
+                      </div>
+                      <div>
+                        <label className="block font-sans text-[9px] font-light uppercase mb-4 tracking-[0.4em] opacity-40">現在の対処法</label>
+                        <textarea 
+                          value={gapForm.coping}
+                          onChange={(e) => setGapForm({...gapForm, coping: e.target.value})}
+                          placeholder="どのように対処していますか？"
+                          className="w-full bg-white/[0.02] border border-white/5 p-6 font-serif italic text-2xl focus:outline-none focus:border-rose-500/30 transition-all rounded-2xl text-white/80 h-32 resize-none"
+                        />
+                      </div>
+                      
+                      <button 
+                        type="submit"
+                        disabled={isAnalyzing}
+                        className="w-full glass-panel py-8 rounded-full font-display italic text-3xl tracking-tighter text-white hover:bg-rose-500/10 transition-all border-rose-500/20 flex items-center justify-center gap-4"
+                      >
+                        {isAnalyzing ? (
+                          <>
+                            <RefreshCw className="animate-spin" size={24} />
+                            AI分析中...
+                          </>
+                        ) : (
+                          <>
+                            <Send size={24} />
+                            記録を送信
+                          </>
+                        )}
+                      </button>
+                    </form>
+                  </div>
+                </div>
+
+                <div className="lg:col-span-2 space-y-8">
+                  <div className="flex items-center justify-between mb-12">
+                    <div className="text-[10px] font-sans font-light uppercase tracking-[0.8em] opacity-40">集計済み不作為記録</div>
+                    <div className="text-[10px] font-sans font-light uppercase tracking-[0.8em] text-rose-400/60">{submittedGaps.length} エントリ</div>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 gap-8">
+                    {submittedGaps.map((gap) => (
+                      <motion.div 
+                        key={gap.id}
+                        initial={{ opacity: 0, x: 20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        className="glass-panel p-12 rounded-[2rem] group hover:bg-white/[0.05] transition-all duration-700"
+                      >
+                        <div className="flex flex-col md:flex-row justify-between gap-12">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-6 mb-8">
+                              <span className="text-[9px] font-sans font-light uppercase tracking-[0.4em] text-rose-400/60">{gap.location}</span>
+                              <span className="w-4 h-[1px] bg-white/10"></span>
+                              <span className="text-[9px] font-sans font-light uppercase tracking-[0.4em] opacity-20">{gap.frequency}</span>
+                            </div>
+                            <h4 className="text-5xl font-display italic tracking-tighter text-white mb-6 uppercase">{gap.actionType}</h4>
+                            
+                            {/* AI Legality Assessment Display */}
+                            <div className="mb-8 p-8 rounded-3xl bg-white/[0.02] border border-white/5">
+                              <div className="flex items-center gap-4 mb-4">
+                                <div className={`px-4 py-1 rounded-full text-[10px] font-sans font-light uppercase tracking-[0.4em] ${
+                                  gap.legalityCategory === '違法' ? 'bg-rose-500/20 text-rose-400' :
+                                  gap.legalityCategory === 'グレー' ? 'bg-amber-500/20 text-amber-400' :
+                                  'bg-emerald-500/20 text-emerald-400'
+                                }`}>
+                                  AI判定: {gap.legalityCategory}
+                                </div>
+                                <span className="text-[8px] font-sans font-light uppercase tracking-[0.4em] opacity-20">Legality Analysis</span>
+                              </div>
+                              <p className="font-serif italic text-xl opacity-60 leading-relaxed">
+                                {gap.legalityExplanation}
+                              </p>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
+                              <div>
+                                <div className="text-[8px] font-sans font-light uppercase tracking-[0.4em] opacity-20 mb-2">体験の内容</div>
+                                <p className="font-serif italic text-2xl opacity-40 leading-relaxed line-clamp-3">{gap.experienceDescription}</p>
+                              </div>
+                              <div>
+                                <div className="text-[8px] font-sans font-light uppercase tracking-[0.4em] opacity-20 mb-2">現在の対処法</div>
+                                <p className="font-serif italic text-2xl opacity-40 leading-relaxed">{gap.coping}</p>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex flex-col justify-between items-end">
+                            <div className="glass-panel p-4 rounded-full opacity-20 group-hover:opacity-100 transition-opacity">
+                              <Scale size={20} className="text-rose-400" />
+                            </div>
+                            <div className="text-right">
+                              <div className="text-[8px] font-sans font-light uppercase tracking-[0.4em] opacity-20 mb-1">法的リスク</div>
+                              <div className="text-2xl font-display italic tracking-tighter text-white">{gap.legalityCategory === '違法' ? '極高' : '要調査'}</div>
+                            </div>
+                          </div>
+                        </div>
+                      </motion.div>
                     ))}
                   </div>
                 </div>
-              )}
+              </div>
+
+              {/* Legal Scrutiny Form */}
+              <div className="glass-panel p-16 md:p-32 rounded-[3rem] relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-96 h-96 bg-rose-500/5 rounded-full -mr-48 -mt-48 blur-[120px]"></div>
+                <h3 className="text-4xl md:text-6xl font-light italic tracking-tighter mb-16 font-display text-white text-glow flex items-center gap-6">
+                  <ShieldAlert size={32} className="text-rose-400" /> 法的精査ツール
+                </h3>
+                
+                <div className="space-y-20 relative z-10">
+                  <div>
+                    <label className="block font-sans text-[9px] font-light uppercase mb-8 tracking-[0.8em] opacity-20">不作為の記録（日時、場所、対話内容、拒絶の理由など）</label>
+                    <textarea 
+                      value={reportText}
+                      onChange={(e) => setReportText(e.target.value)}
+                      placeholder="あなたの尊厳が損なわれた瞬間の記録を入力してください..."
+                      className="w-full h-96 bg-white/[0.02] border border-white/5 p-12 font-serif italic text-3xl md:text-4xl focus:outline-none focus:border-rose-500/30 focus:bg-white/[0.04] transition-all resize-none rounded-3xl text-white/80 leading-relaxed placeholder:opacity-10"
+                    />
+                  </div>
+
+                  <div className="flex flex-col md:flex-row gap-12">
+                    <button 
+                      onClick={handleAnalyze}
+                      disabled={isAnalyzing || !reportText}
+                      className="flex-2 glass-panel text-white py-10 px-16 font-light italic text-3xl tracking-tighter hover:bg-white/10 transition-all flex items-center justify-center gap-6 font-display group rounded-full overflow-hidden relative"
+                    >
+                      <div className="absolute inset-0 bg-gradient-to-r from-rose-500/10 to-blue-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
+                      {isAnalyzing ? "分析中..." : <><Sparkles className="opacity-40 group-hover:opacity-100 group-hover:text-rose-400 transition-all" /> 法的精査を実行</>}
+                    </button>
+                    <button className="flex-1 glass-panel py-10 px-16 font-light italic text-3xl tracking-tighter hover:bg-white/10 transition-all flex items-center justify-center gap-6 font-display rounded-full text-white/40 hover:text-white">
+                      <Send size={20} className="opacity-40" /> 記録を保存
+                    </button>
+                  </div>
+                </div>
+
+                {analysis && (
+                  <motion.div 
+                    initial={{ opacity: 0, y: 30 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="mt-24 glass-panel p-16 md:p-24 rounded-[2rem] border-rose-500/10"
+                  >
+                    <div className="flex items-center gap-4 text-rose-400 font-light italic text-3xl mb-12 font-display">
+                      <Sparkles size={24} className="opacity-60" /> 精査レポート
+                    </div>
+                    <div className="prose prose-invert prose-2xl max-w-none font-serif italic leading-[1.8] whitespace-pre-wrap opacity-70 text-white/90">
+                      <ReactMarkdown>{analysis}</ReactMarkdown>
+                    </div>
+                  </motion.div>
+                )}
+              </div>
 
               {/* Legal Reference Search Section */}
-              <div className="mt-40 glass-panel p-16 md:p-32 rounded-[3rem] relative overflow-hidden">
+              <div className="glass-panel p-16 md:p-32 rounded-[3rem] relative overflow-hidden">
                 <div className="absolute top-0 left-0 w-96 h-96 bg-blue-500/5 rounded-full -ml-48 -mt-48 blur-[120px]"></div>
                 <h3 className="text-4xl md:text-6xl font-light italic tracking-tighter mb-16 font-display text-white text-glow flex items-center gap-6">
                   <BookOpen size={32} className="opacity-40" /> 関連法規検索
@@ -1073,15 +1138,6 @@ ${LEGAL_REFERENCES.map(l => `${l.title}: ${l.content}`).join("\n")}`,
                     </div>
                   </motion.div>
                 )}
-
-                <div className="mt-16 grid grid-cols-1 md:grid-cols-2 gap-8 opacity-20">
-                  {LEGAL_REFERENCES.slice(0, 4).map((law) => (
-                    <div key={law.id} className="glass-panel p-8 rounded-2xl border-white/5">
-                      <div className="text-[10px] font-sans font-light uppercase tracking-[0.4em] mb-4 text-blue-400">{law.title}</div>
-                      <div className="text-lg font-serif italic line-clamp-2">{law.content}</div>
-                    </div>
-                  ))}
-                </div>
               </div>
             </div>
           </motion.main>
@@ -1224,185 +1280,6 @@ ${LEGAL_REFERENCES.map(l => `${l.title}: ${l.content}`).join("\n")}`,
               )}
             </AnimatePresence>
 
-        {view === "gap_db" && (
-          <motion.main 
-            key="gap_db"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            className="pt-40"
-          >
-            {/* Module Breadcrumb */}
-            <div className="max-w-7xl mx-auto px-8 flex items-center gap-4 mb-24 opacity-20 hover:opacity-100 transition-opacity cursor-pointer" onClick={() => setView("portal")}>
-              <span className="text-[9px] font-sans font-light uppercase tracking-[0.6em]">Project Mana</span>
-              <span className="w-4 h-[1px] bg-white/20"></span>
-              <span className="text-[9px] font-sans font-light uppercase tracking-[0.6em] text-emerald-400">Gap DB Module</span>
-            </div>
-
-            <div className="flex flex-col md:flex-row justify-between items-end mb-32 gap-12 px-8">
-              <div>
-                <button 
-                  onClick={() => setView("portal")}
-                  className="flex items-center gap-3 font-sans text-[9px] font-light uppercase tracking-[0.6em] mb-12 hover:text-white transition-colors opacity-40 hover:opacity-100"
-                >
-                  <ChevronLeft size={14} /> Return to Portal
-                </button>
-                <h2 className="text-7xl md:text-[12rem] font-light italic tracking-tighter leading-none font-display text-white text-glow">支援の空白データベース</h2>
-                <p className="font-serif italic text-3xl md:text-4xl opacity-20 mt-8 max-w-2xl leading-relaxed font-light">
-                  当事者の日常に潜む「支援の空白」をデータ化し、新たな支援の形を模索する。
-                </p>
-              </div>
-            </div>
-
-            <div className="max-w-7xl mx-auto px-8 mb-40">
-              {/* Administrative Inaction News Section */}
-              <div className="mb-32">
-                <div className="flex items-center gap-4 mb-12 opacity-40">
-                  <span className="text-[10px] font-sans font-light uppercase tracking-[0.8em]">行政不作為・公務上の不正 記録</span>
-                  <div className="flex-1 h-[1px] bg-white/10"></div>
-                  {user?.role === "admin" && (
-                    <button 
-                      onClick={fetchAiNews}
-                      disabled={isFetchingNews}
-                      className="text-[9px] font-sans font-light uppercase tracking-[0.4em] hover:text-rose-400 transition-colors flex items-center gap-2"
-                    >
-                      {isFetchingNews ? <RefreshCw className="animate-spin" size={10} /> : <Zap size={10} />}
-                      AI収集
-                    </button>
-                  )}
-                </div>
-                <div className="space-y-4">
-                  {[...STATIC_INACTION, ...allNews.filter(n => n.category === "INACTION_RECORD")].map((item, i) => (
-                    <div key={i} onClick={() => setSelectedNews(item)}>
-                      <NewsItem {...item} />
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-16">
-                {/* Form Section */}
-                <div className="lg:col-span-1">
-                  <div className="glass-panel p-12 rounded-[3rem] sticky top-32">
-                    <div className="flex items-center gap-4 mb-12">
-                      <Database size={24} className="text-emerald-400/60" />
-                      <h3 className="text-4xl font-display italic tracking-tighter text-white">データ入力</h3>
-                    </div>
-                    
-                    <form onSubmit={handleGapSubmit} className="space-y-12">
-                      <div>
-                        <label className="block font-sans text-[9px] font-light uppercase mb-4 tracking-[0.4em] opacity-40">所在地</label>
-                        <input 
-                          type="text"
-                          value={gapForm.location}
-                          onChange={(e) => setGapForm({...gapForm, location: e.target.value})}
-                          placeholder="例：京都市右京区"
-                          className="w-full bg-white/[0.02] border border-white/5 p-6 font-serif italic text-2xl focus:outline-none focus:border-emerald-500/30 transition-all rounded-2xl text-white/80"
-                        />
-                      </div>
-                      <div>
-                        <label className="block font-sans text-[9px] font-light uppercase mb-4 tracking-[0.4em] opacity-40">アクションの種類</label>
-                        <input 
-                          type="text"
-                          value={gapForm.actionType}
-                          onChange={(e) => setGapForm({...gapForm, actionType: e.target.value})}
-                          placeholder="例：生活保護申請の拒絶"
-                          className="w-full bg-white/[0.02] border border-white/5 p-6 font-serif italic text-2xl focus:outline-none focus:border-emerald-500/30 transition-all rounded-2xl text-white/80"
-                        />
-                      </div>
-                      <div>
-                        <label className="block font-sans text-[9px] font-light uppercase mb-4 tracking-[0.4em] opacity-40">頻度</label>
-                        <input 
-                          type="text"
-                          value={gapForm.frequency}
-                          onChange={(e) => setGapForm({...gapForm, frequency: e.target.value})}
-                          placeholder="例：毎日, 週3回"
-                          className="w-full bg-white/[0.02] border border-white/5 p-6 font-serif italic text-2xl focus:outline-none focus:border-emerald-500/30 transition-all rounded-2xl text-white/80"
-                        />
-                      </div>
-                      <div>
-                        <label className="block font-sans text-[9px] font-light uppercase mb-4 tracking-[0.4em] opacity-40">現在の対処法</label>
-                        <textarea 
-                          value={gapForm.coping}
-                          onChange={(e) => setGapForm({...gapForm, coping: e.target.value})}
-                          placeholder="どのように対処していますか？"
-                          className="w-full bg-white/[0.02] border border-white/5 p-6 font-serif italic text-2xl focus:outline-none focus:border-emerald-500/30 transition-all rounded-2xl text-white/80 h-32 resize-none"
-                        />
-                      </div>
-                      <div>
-                        <label className="block font-sans text-[9px] font-light uppercase mb-4 tracking-[0.4em] opacity-40">潜在的なテックソリューション</label>
-                        <input 
-                          type="text"
-                          value={gapForm.techSolution}
-                          onChange={(e) => setGapForm({...gapForm, techSolution: e.target.value})}
-                          placeholder="例：自動申請ボット"
-                          className="w-full bg-white/[0.02] border border-white/5 p-6 font-serif italic text-2xl focus:outline-none focus:border-emerald-500/30 transition-all rounded-2xl text-white/80"
-                        />
-                      </div>
-                      
-                      <button 
-                        type="submit"
-                        className="w-full glass-panel py-8 rounded-full font-display italic text-3xl tracking-tighter text-white hover:bg-emerald-500/10 transition-all border-emerald-500/20"
-                      >
-                        記録を送信
-                      </button>
-                    </form>
-                  </div>
-                </div>
-
-                {/* List Section */}
-                <div className="lg:col-span-2 space-y-8">
-                  <div className="flex items-center justify-between mb-12">
-                    <div className="text-[10px] font-sans font-light uppercase tracking-[0.8em] opacity-40">検証済み空白記録</div>
-                    <div className="text-[10px] font-sans font-light uppercase tracking-[0.8em] text-emerald-400/60">{submittedGaps.length} エントリ</div>
-                  </div>
-                  
-                  <div className="grid grid-cols-1 gap-8">
-                    {submittedGaps.map((gap) => (
-                      <motion.div 
-                        key={gap.id}
-                        initial={{ opacity: 0, x: 20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        className="glass-panel p-12 rounded-[2rem] group hover:bg-white/[0.05] transition-all duration-700"
-                      >
-                        <div className="flex flex-col md:flex-row justify-between gap-12">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-6 mb-8">
-                              <span className="text-[9px] font-sans font-light uppercase tracking-[0.4em] text-emerald-400/60">{gap.location}</span>
-                              <span className="w-4 h-[1px] bg-white/10"></span>
-                              <span className="text-[9px] font-sans font-light uppercase tracking-[0.4em] opacity-20">{gap.frequency}</span>
-                            </div>
-                            <h4 className="text-5xl font-display italic tracking-tighter text-white mb-6 uppercase">{gap.actionType}</h4>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
-                              <div>
-                                <div className="text-[8px] font-sans font-light uppercase tracking-[0.4em] opacity-20 mb-2">現在の対処法</div>
-                                <p className="font-serif italic text-2xl opacity-40 leading-relaxed">{gap.coping}</p>
-                              </div>
-                              <div>
-                                <div className="text-[8px] font-sans font-light uppercase tracking-[0.4em] opacity-20 mb-2">テック代替案</div>
-                                <p className="font-serif italic text-2xl text-emerald-400/60 leading-relaxed">{gap.techSolution}</p>
-                              </div>
-                            </div>
-                          </div>
-                          <div className="flex flex-col justify-between items-end">
-                            <div className="glass-panel p-4 rounded-full opacity-20 group-hover:opacity-100 transition-opacity">
-                              <Coins size={20} className="text-emerald-400" />
-                            </div>
-                            <div className="text-right">
-                              <div className="text-[8px] font-sans font-light uppercase tracking-[0.4em] opacity-20 mb-1">市場ポテンシャル</div>
-                              <div className="text-2xl font-display italic tracking-tighter text-white">高</div>
-                            </div>
-                          </div>
-                        </div>
-                      </motion.div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </motion.main>
-        )}
-
         {view === "case_ukyo" && (
           <motion.main 
             key="case_ukyo"
@@ -1499,8 +1376,7 @@ ${LEGAL_REFERENCES.map(l => `${l.title}: ${l.content}`).join("\n")}`,
           © 2026 Project Mana Archive — All Rights Reserved
         </div>
       </footer>
-
-      </div>
     </div>
-  );
+  </div>
+);
 }

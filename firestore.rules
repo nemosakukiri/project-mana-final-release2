@@ -20,6 +20,9 @@ service cloud.firestore {
     // Fields:
     //   - location: string (required) - The location where the gap was observed.
     //   - actionType: string (required) - The type of action or service that is missing.
+    //   - experienceDescription: string (required) - The detailed description of the user's experience.
+    //   - legalityCategory: string (required) - The AI-assessed legality category.
+    //   - legalityExplanation: string (required) - The AI-assessed legality explanation.
     //   - frequency: string (optional) - How often the gap occurs.
     //   - duration: string (optional) - How long the gap has persisted.
     //   - coping: string (optional) - How the person currently copes with the gap.
@@ -96,9 +99,12 @@ service cloud.firestore {
     }
 
     function isValidGap(data) {
-      return hasOnlyAllowedFields(['location', 'actionType', 'frequency', 'duration', 'coping', 'techSolution', 'userId', 'createdAt']) &&
+      return hasOnlyAllowedFields(['location', 'actionType', 'experienceDescription', 'legalityCategory', 'legalityExplanation', 'frequency', 'duration', 'coping', 'techSolution', 'userId', 'createdAt']) &&
              data.location is string && data.location.size() > 0 && data.location.size() < 200 &&
              data.actionType is string && data.actionType.size() > 0 && data.actionType.size() < 200 &&
+             data.experienceDescription is string && data.experienceDescription.size() > 0 && data.experienceDescription.size() < 5000 &&
+             data.legalityCategory is string && data.legalityCategory in ['違法', '適法', 'グレー'] &&
+             data.legalityExplanation is string && data.legalityExplanation.size() > 0 &&
              data.userId is string && data.userId == request.auth.uid &&
              data.createdAt is timestamp;
     }
